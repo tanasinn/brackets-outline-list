@@ -132,6 +132,10 @@
     font-family: sans-serif;
 }
 
+.outline-entry-js-indent {
+    color: #adb9bd;
+    font-family: Ionicons;
+}
 
 /* CoffeeScript */
 .outline-entry-coffee-arg {

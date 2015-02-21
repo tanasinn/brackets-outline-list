@@ -3,6 +3,8 @@
 define(function (require, exports, module) {
     "use strict";
 
+    var acorn = require("src/external/acorn_loose");
+
     function _getVisibilityClass(name) {
         if (name === "function") {
             return " outline-entry-js-unnamed";
@@ -10,8 +12,18 @@ define(function (require, exports, module) {
         return " outline-entry-js-" + (name[0] === "_" ? "private" : "public");
     }
 
-    function _createListEntry(name, args, line, ch) {
+    function _createListEntry(name, args, line, ch, indent) {
         var $elements = [];
+        if (indent) {
+            var $indentation = $(document.createElement("span"));
+            $indentation.addClass("outline-entry-js-indent");
+            var interpunct = "";
+            for (var i = 0; i < indent; i++) {
+                interpunct += "·";
+            }
+            $indentation.text(interpunct);
+            $elements.push($indentation);
+        }
         var $name = $(document.createElement("span"));
         $name.addClass("outline-entry-js-name");
         $name.text(name);
@@ -43,8 +55,9 @@ define(function (require, exports, module) {
         } else {
             regex = /((\w*)\s*[=:]\s*)?function(\s*|\s+\w*\s*)()\(/g;
         }
+
         var result = [];
-        lines.forEach(function (line, index) {
+        function _parseLine(line, index, level) {
             var match = regex.exec(line);
             while (match !== null) {
                 var name = (match[3].trim() || match[2] || "").trim();
@@ -57,9 +70,29 @@ define(function (require, exports, module) {
                         continue;
                     }
                 }
-                result.push(_createListEntry(name, args, index, line.length));
+                result.push(_createListEntry(name, args, index, line.length, level));
             }
+        }
+
+        function _traverseAst(tree, level) {
+            if(/Function(Expression|Declaration)/.test(tree.type)) {
+                var index = tree.loc.start.line - 1;
+                _parseLine(lines[index], index, level);
+                level++;
+            }
+            for(var prop in tree) {
+                if (tree[prop] && typeof(tree[prop]) === "object") {
+                    _traverseAst(tree[prop], level);
+                }
+            }
+        }
+
+        var tree = acorn.parse_dammit(lines.join("\n"), {
+            locations   : true,
+            ranges      : false,
+            ecmaVersion : 6
         });
+        _traverseAst(tree, 0);
         return result;
     }
 
